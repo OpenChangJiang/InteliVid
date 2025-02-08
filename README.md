@@ -1,8 +1,16 @@
-# InteliVid
+<div align="center">
 
+# InteliVid
 Inteli(gent)Vid(eo), based on DeepSeek-V3 and DeepSeek-Janus-Pro.
 
-Supported:
+![GitHub license](https://img.shields.io/github/license/OpenChangJiang/InteliVid)
+![GitHub stars](https://img.shields.io/github/stars/OpenChangJiang/InteliVid)
+
+**English** | [**简体中文**](docs/cn/README.md)
+
+</div>
+
+### Supported
 
 - Video Summarization
 - Video Q&A
