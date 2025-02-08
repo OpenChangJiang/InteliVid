@@ -87,11 +87,20 @@ def main():
             
             with gr.TabItem("视频问答"):
                 with gr.Row():
-                    video_input_qa = gr.Video(label="上传视频")
-                chatbot = gr.ChatInterface(
-                    fn=lambda question, chat_history: chatbot_interface(video_input_qa, question, chat_history),
-                    examples=["视频的主要内容是什么？", "视频中有哪些关键场景？"],
-                    title="视频问答 Chatbot"
+                    video_input_qa = gr.Video(label="上传视频", sources=["upload"])
+                chatbot = gr.Chatbot(label="对话历史")
+                question_input = gr.Textbox(label="输入问题")
+                submit_btn = gr.Button("提交")
+                
+                submit_btn.click(
+                    fn=chatbot_interface,
+                    inputs=[video_input_qa, question_input, chatbot],
+                    outputs=[question_input, chatbot]
+                )
+                
+                gr.Examples(
+                    examples=["视频的主要内容是什么?", "视频中有哪些关键场景?"],
+                    inputs=question_input
                 )
             
             with gr.TabItem("视频分类"):
