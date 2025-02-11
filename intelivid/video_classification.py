@@ -1,5 +1,6 @@
 from typing import List
-from multimodal_understanding import main as understand_images
+
+from intelivid.multimodal_understanding import main as understand_images
 
 def main() -> List[str]:
     # Analyze keyframes using existing multimodal understanding
