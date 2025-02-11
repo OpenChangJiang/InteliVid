@@ -2,11 +2,11 @@ import gradio as gr
 from typing import Optional, List
 import os
 
-from keyframe_extraction import extract_keyframes
-from multimodal_understanding import main as understand_images
-from video_summarization import main as summarize_video
-from video_qa import main as video_qa
-from video_classification import main as classify_video
+from intelivid.keyframe_extraction import extract_keyframes
+from intelivid.multimodal_understanding import main as understand_images
+from intelivid.video_summarization import main as summarize_video
+from intelivid.video_qa import main as video_qa
+from intelivid.video_classification import main as classify_video
 
 
 def process_video(video_path: str, mode: str, analysis_level: str, 
