@@ -1,5 +1,5 @@
 from langchain_community.document_loaders import DirectoryLoader
-from langchain_community.embeddings import ZhipuAIEmbeddings
+from langchain_community.embeddings import DashScopeEmbeddings
 from langchain_community.vectorstores import Milvus
 from dotenv import load_dotenv
 from langchain.prompts import PromptTemplate
@@ -27,8 +27,8 @@ client = MilvusClient(
 # 清空Collection，避免其他数据干扰
 client.drop_collection(collection_name="LangChainCollection")
 
-# 初始化ZhipuAI Embedding
-embeddings = ZhipuAIEmbeddings()
+# 初始化DashScope Embedding
+embeddings = DashScopeEmbeddings(model="text-embedding-v3")
 
 # 加载字幕文档
 loader = DirectoryLoader('./output/captions/basic', glob='**/*.txt')
@@ -77,7 +77,6 @@ def rag_pipeline(query: str):
 def main(query: str):
     answer = rag_pipeline(query)
     return answer
-
 
 if __name__ == "__main__":
     # 测试RAG功能
