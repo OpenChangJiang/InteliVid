@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+import numpy as np
 from transformers import AutoModelForCausalLM
 from janus.models import MultiModalityCausalLM, VLChatProcessor
 from janus.utils.io import load_pil_images
@@ -35,11 +36,18 @@ class JanusEmbedder:
             # Get embeddings from the model's language model
             return self.vl_gpt.language_model.get_input_embeddings()(inputs["input_ids"])
     
-    def encode_image(self, image_path):
-        """Encode image into embedding vector"""
+    def encode_image(self, image_input):
+        """Encode image into embedding vector. Accepts either file path or numpy array"""
         # Convert image to base64
         buffered = BytesIO()
-        Image.open(image_path).save(buffered, format="PNG")
+        
+        # Handle numpy array input
+        if isinstance(image_input, np.ndarray):
+            Image.fromarray(image_input).save(buffered, format="PNG")
+        # Handle file path input
+        else:
+            Image.open(image_input).save(buffered, format="PNG")
+            
         image = "data:image/png;base64," + base64.b64encode(buffered.getvalue()).decode()
         
         # Create conversation with image
