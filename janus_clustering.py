@@ -28,10 +28,19 @@ class JanusClustering:
             password=milvus_password
         )
         
-        # Define collection schema with only necessary fields
+        # Determine embedding dimension based on model
+        if "Janus-Pro-1B" in model_path:
+            dim = 2048
+        elif "Janus-Pro-7B" in model_path:
+            dim = 4096
+        else:
+            raise ValueError(f"Unknown model in path: {model_path}")
+
+        # Define collection schema with timestamp field
         fields = [
             FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
-            FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=2048)
+            FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=dim),
+            FieldSchema(name="timestamp", dtype=DataType.DOUBLE)
         ]
         schema = CollectionSchema(fields=fields, description="Janus feature vector collection")
         
@@ -51,8 +60,10 @@ class JanusClustering:
         """Extract frames from video at specified interval"""
         cap = cv2.VideoCapture(video_path)
         frame_list = []
+        timestamps = []
         frame_count = 0
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
         
         print(f"[{pd.Timestamp.now()}] Starting frame extraction from {video_path}")
         
@@ -63,6 +74,8 @@ class JanusClustering:
                 
             if frame_count % frame_interval == 0:
                 frame_list.append(frame)
+                timestamp = frame_count / fps
+                timestamps.append(timestamp)
                 if frame_count % 100 == 0:
                     progress = (frame_count / total_frames) * 100
                     print(f"[{pd.Timestamp.now()}] Extracted {frame_count}/{total_frames} frames ({progress:.1f}%)")
@@ -70,9 +83,9 @@ class JanusClustering:
             
         cap.release()
         print(f"[{pd.Timestamp.now()}] Frame extraction complete. Extracted {len(frame_list)} frames")
-        return frame_list
+        return frame_list, timestamps
 
-    def encode_and_store(self, frames):
+    def encode_and_store(self, frames, timestamps):
         """Encode frames and store in Milvus"""
         embeddings = []
         total_frames = len(frames)
@@ -87,8 +100,11 @@ class JanusClustering:
                 embeddings.append(emb[0])
         
         print(f"[{pd.Timestamp.now()}] Starting storage in Milvus")
-        for i, (frame, embedding) in enumerate(zip(frames, embeddings)):
-            self.collection.insert({"embedding": embedding})
+        for i, (frame, embedding, timestamp) in enumerate(zip(frames, embeddings, timestamps)):
+            self.collection.insert({
+                "embedding": embedding,
+                "timestamp": timestamp
+            })
             if (i + 1) % 10 == 0:
                 progress = ((i + 1) / total_frames) * 100
                 print(f"[{pd.Timestamp.now()}] Stored {i + 1}/{total_frames} frames ({progress:.1f}%)")
@@ -100,7 +116,7 @@ class JanusClustering:
         self.collection.flush()
         print(f"[{pd.Timestamp.now()}] Encoding and storage complete")
 
-    def cluster(self, min_samples=3, min_cluster_size=3):
+    def cluster(self, min_samples=3, min_cluster_size=24):
         """Perform HDBSCAN clustering using precomputed distances from Milvus"""
         print(f"[{pd.Timestamp.now()}] Starting clustering process")
         self.collection.load()
@@ -198,7 +214,7 @@ class JanusClustering:
 
 def main():
     # Configuration
-    model_path = "./models/Janus-Pro-1B"
+    model_path = "./models/Janus-Pro-7B"
     milvus_uri = os.getenv("MILVUS_URI")
     milvus_user = os.getenv("MILVUS_USER")
     milvus_password = os.getenv("MILVUS_PASSWORD")
@@ -206,10 +222,56 @@ def main():
     
     # Initialize and run clustering
     clusterer = JanusClustering(model_path, milvus_uri, milvus_user, milvus_password)
-    frames = clusterer.extract_frames(video_path)
-    clusterer.encode_and_store(frames)
+    # Create output directory if it doesn't exist
+    output_dir = "./output/segments/"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Extract frames and timestamps
+    frames, timestamps = clusterer.extract_frames(video_path)
+    clusterer.encode_and_store(frames, timestamps)
     labels, embeddings = clusterer.cluster()
     clusterer.visualize(labels, embeddings)
+    
+    # Split video into segments based on clustering
+    print(f"[{pd.Timestamp.now()}] Starting video segmentation")
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    
+    # Group frames by cluster
+    cluster_groups = {}
+    for i, label in enumerate(labels):
+        if label not in cluster_groups:
+            cluster_groups[label] = []
+        cluster_groups[label].append(i)
+    
+    # Create video segments for each cluster
+    for label, frame_indices in cluster_groups.items():
+        if label == -1:  # Skip noise
+            continue
+            
+        # Get start and end timestamps
+        start_time = timestamps[frame_indices[0]]
+        end_time = timestamps[frame_indices[-1]]
+        
+        # Create output video path
+        output_path = os.path.join(output_dir, f"segment_{label}_{start_time:.1f}-{end_time:.1f}.mp4")
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        
+        # Write frames to output video
+        for idx in frame_indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+            ret, frame = cap.read()
+            if ret:
+                out.write(frame)
+        
+        out.release()
+        print(f"[{pd.Timestamp.now()}] Created segment: {output_path}")
+    
+    cap.release()
+    print(f"[{pd.Timestamp.now()}] Video segmentation complete")
 
 
 if __name__ == "__main__":
