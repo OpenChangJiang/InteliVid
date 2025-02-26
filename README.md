@@ -2,7 +2,7 @@
 
 # InteliVid
 
-**Inteli**(gent)**Vid**(eo), based on DeepSeek-V3 and DeepSeek-Janus-Pro.
+Video Agent
 
 ![GitHub license](https://img.shields.io/github/license/OpenChangJiang/InteliVid)
 ![GitHub stars](https://img.shields.io/github/stars/OpenChangJiang/InteliVid)
